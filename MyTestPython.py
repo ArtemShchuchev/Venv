@@ -10,12 +10,6 @@ import random
 import os
 
 TOKEN = os.getenv("TELEG_TOKEN", "00000000")
-HELP = """
-/help(/справка) - эта справка.
-/add(/добавь) - добавить задачу в список
-\t(ожидаю, время и название задачи)
-/show(/покажи) - показать задачи на выбранное время.
-/rand(/случайно) - добавить случайную задачу на сегодня"""
 RANDOM_TASKS = ["Записаться на курс в Нетологию", "Написать Гвидо письмо", "Покормить кошку", "Помыть машину"]
 
 bot = TeleBot(TOKEN)
@@ -65,8 +59,6 @@ def welcome(message):
 @bot.callback_query_handler(func=lambda call: call.data == 'Добавить задачу')
 def add(callback_query):
     message = callback_query.message
-    chatid = message.chat.id
-    
     mes = 'Введи время задачи (сегодня, завтра, 12.03.2024...)'
     answer = bot.edit_message_text(chat_id=callback_query.from_user.id,
                           message_id=message.message_id, text=mes)
