@@ -1,4 +1,11 @@
-import telebot
+from telebot import TeleBot
+from telebot.types import (
+    ReplyKeyboardMarkup, 
+    KeyboardButton,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    ReplyKeyboardRemove
+)
 import random
 import os
 
@@ -11,8 +18,10 @@ HELP = """
 /rand(/случайно) - добавить случайную задачу на сегодня"""
 RANDOM_TASKS = ["Записаться на курс в Нетологию", "Написать Гвидо письмо", "Покормить кошку", "Помыть машину"]
 
+bot = TeleBot(TOKEN)
 # todo = { chatid: { дата: [] } }
 todo = {}
+
 
 def addTask(chatid, time, task):
     time = time.lower()
@@ -26,38 +35,39 @@ def addTask(chatid, time, task):
     #else:
     #    todo[chatid] = {time: [task]}
     
-    mes = 'Задача "{}" добавлена на {}'.format(task, time)
-    bot.send_message(chatid, mes)
-    
-    
+    #mes = 'Задача "{}" добавлена на {}'.format(task, time)
+    #bot.send_message(chatid, mes)
 
-bot = telebot.TeleBot(TOKEN)
 
-def buttons(message):
-    #bot.edit_message_text(chat_id=message.chat.id, message_id=message.message_id, text='...')
-    keyboard = telebot.types.InlineKeyboardMarkup()
-    button_rand = telebot.types.InlineKeyboardButton(text="Случайная задача",
-                                                     callback_data='добавить случайную задачу')
-    button_show = telebot.types.InlineKeyboardButton(text="Покажи задачи",
-                                                     callback_data='Покажи задачи')
-    
-    keyboard.add(button_rand, button_show)
-    mes = message.text + 'Выбери необходимую инструкцию.'
-    bot.send_message(message.chat.id, mes, reply_markup=keyboard)
+inlineKeys = ['Добавить задачу', "Случайная задача", "Покажи задачи"]
+
+def buttons(isEmptyTodo):
+    exceptKey = "Покажи задачи" if isEmptyTodo else ""
+    key = [InlineKeyboardButton(txt, callback_data=txt) for txt in inlineKeys if txt != exceptKey]
+    keyboard = InlineKeyboardMarkup(row_width=2).add(*key)
+    return keyboard
+
 
 @bot.message_handler(commands=['start'])
 def welcome(message):
     first_name = message.from_user.first_name
     chatid = message.chat.id
-    todo[chatid] = {}
-    message.text = '{}, добро пожаловать в бота "Список дел"!'.format(first_name)
-    #bot.send_message(chatid, '{}, добро пожаловать в бота "Список дел"!'.format(first_name))
-    #bot.send_message(message.chat.id, HELP)
-    buttons(message)
     
+    if chatid not in todo:
+        todo[chatid] = {}
+        todoEmpty = True
+    else:
+        todoEmpty = False
+    
+    mes = '''{}, добро пожаловать в бота "Список дел"!\n
+            Выбери необходимую инструкцию.'''.format(first_name)
+    bot.send_message(chatid, mes, reply_markup=buttons(todoEmpty))
+    
+
 @bot.message_handler(commands=['help', 'справка'])
 def help(message):
     bot.send_message(message.chat.id, HELP)
+
 
 @bot.message_handler(commands=['add', 'todo', 'добавь'])
 def add(message):
@@ -66,42 +76,60 @@ def add(message):
     task = commandStr[2]
     addTask(message.chat.id, date, task) 
 
-@bot.callback_query_handler(func=lambda call: call.data == 'добавить случайную задачу')
+
+@bot.callback_query_handler(func=lambda call: call.data == 'Случайная задача')
 def rand(callback_query):
     message = callback_query.message
-    chatid = callback_query.from_user.id
-    bot.answer_callback_query(callback_query.id)
-    messageid = message.message_id
-    
-    
-    
     date = 'сегодня'
     task = random.choice(RANDOM_TASKS)
     addTask(message.chat.id, date, task)
-    #bot.edit_message_text(chat_id=chatid, message_id=messageid, text='...')
-    buttons(message)
+    
+    mes = 'Задача "{}" добавлена на {}'.format(task, date)
+    bot.answer_callback_query(callback_query.id, text=mes)
+    
+    mes = 'Выбери необходимую инструкцию.'
+    if message.text != mes:
+        todoEmpty = len(todo[message.chat.id]) == 0
+        bot.edit_message_text(chat_id=callback_query.from_user.id,
+                              message_id=message.message_id,
+                              text=mes, reply_markup=buttons(todoEmpty))
 
-@bot.message_handler(func=lambda message: message.text == 'Покажи задачи')
-def show(message):
+
+@bot.callback_query_handler(func=lambda call: call.data == 'Покажи задачи')
+def show(callback_query):
+    message = callback_query.message
     chatid = message.chat.id
-    usertodo = todo[chatid]
-    if len(usertodo) == 0:
+    
+    key = [KeyboardButton(txt) for txt in todo[chatid].keys()]
+    keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).add(*key)
+        
+    #bot.send_message(chatid, 'Выбери интересующее время...', reply_markup=keyboard)
+    
+    mes = 'Выбери интересующее время...'
+    bot.edit_message_text(chat_id=callback_query.from_user.id, message_id=message.message_id, text='...')
+    
+    #bot.register_next_step_handler(message, dateChoice)
+    chatid = message.chat.id
+    if len(todo[chatid]) == 0:
         bot.send_message(chatid, 'Список задач пуст!')
     else:
         #bot.send_message(chatid, 'Есть задачи на:')
-        #for time in usertodo.keys():
+        #for time in todo[chatid].keys():
         #    mes = '* ' + time
         #    bot.send_message(chatid, mes)
         #bot.send_message(chatid, 'Напиши интересующее время...')
         #bot.register_next_step_handler(message, dateChoice)
         
-        keyboard = telebot.types.ReplyKeyboardMarkup(resize_keyboard=True)
-        key = list()
-        for time in usertodo.keys():
-            key.append(telebot.types.KeyboardButton(text=str(time)))
+        #keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
+        key = [KeyboardButton(txt) for txt in todo[chatid].keys()]
+        keyboard = ReplyKeyboardMarkup(resize_keyboard=True).add(*key)
         
-        for k in key:
-            keyboard.add(k)
+        #key = list()
+        #for time in todo[chatid].keys():
+        #    key.append(KeyboardButton(text=str(time)))
+        #
+        #for k in key:
+        #    keyboard.add(k)
             
         bot.send_message(chatid,
                      'Выбери интересующее время...',
@@ -109,19 +137,20 @@ def show(message):
         
         bot.register_next_step_handler(message, dateChoice)
     
+
 def dateChoice(message):
     chatid = message.chat.id
     usertodo = todo[chatid]
     time = message.text.lower()
-    keyboard = telebot.types.ReplyKeyboardRemove()
-    mes = 'Список задач на ' + time
-    bot.send_message(chatid, mes, reply_markup=keyboard)
+    mes = 'Список задач на {}:'.format(time)
     if time in usertodo:
         for task in usertodo[time]:
-            mes = '- ' + task
-            bot.send_message(chatid, mes)
-    else:
-        bot.send_message(chatid, 'Нет задач на: {}'.format(time))
+            mes += '\n- ' + task
+    bot.send_message(chatid, mes, reply_markup=ReplyKeyboardRemove())
+    mes = 'Выбери необходимую инструкцию.'
+    todoEmpty = len(todo[message.chat.id]) == 0
+    bot.send_message(chatid, mes, reply_markup=buttons(todoEmpty))
+
 
 if __name__ == '__main__':
     print('Бот запущен!')
