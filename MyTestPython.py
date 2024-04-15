@@ -22,21 +22,19 @@ bot = TeleBot(TOKEN)
 # todo = { chatid: { дата: [] } }
 todo = {}
 
+###
+# commandStr = message.text.split(maxsplit=2)
+###
+
 
 def addTask(chatid, time, task):
     time = time.lower()
-    
     if chatid in todo:
         usertodo = todo[chatid]
         if time in usertodo:
             usertodo[time].append(task)
         else:
             usertodo[time] = [task]
-    #else:
-    #    todo[chatid] = {time: [task]}
-    
-    #mes = 'Задача "{}" добавлена на {}'.format(task, time)
-    #bot.send_message(chatid, mes)
 
 
 inlineKeys = ['Добавить задачу', "Случайная задача", "Покажи задачи"]
@@ -62,19 +60,36 @@ def welcome(message):
     mes = '''{}, добро пожаловать в бота "Список дел"!\n
             Выбери необходимую инструкцию.'''.format(first_name)
     bot.send_message(chatid, mes, reply_markup=buttons(todoEmpty))
+
+
+@bot.callback_query_handler(func=lambda call: call.data == 'Добавить задачу')
+def add(callback_query):
+    message = callback_query.message
+    chatid = message.chat.id
     
+    mes = 'Введи время задачи (сегодня, завтра, 12.03.2024...)'
+    answer = bot.edit_message_text(chat_id=callback_query.from_user.id,
+                          message_id=message.message_id, text=mes)
+    bot.register_next_step_handler(answer, dateInput)
 
-@bot.message_handler(commands=['help', 'справка'])
-def help(message):
-    bot.send_message(message.chat.id, HELP)
+
+def dateInput(message):
+    time = message.text.lower()
+    mes = 'Введите задачу (купить молоко, отдохнуть...)'
+    answer = bot.send_message(message.chat.id, mes)
+    bot.register_next_step_handler(answer, taskInput, time)
 
 
-@bot.message_handler(commands=['add', 'todo', 'добавь'])
-def add(message):
-    commandStr = message.text.split(maxsplit=2)
-    date = commandStr[1]
-    task = commandStr[2]
-    addTask(message.chat.id, date, task) 
+def taskInput(message, date):
+    chatid = message.chat.id
+    task = message.text
+    addTask(chatid, date, task)
+    
+    mes = 'Задача "{}" добавлена на {}'.format(task, date)
+    bot.send_message(chatid, mes)
+    
+    mes = 'Выбери необходимую инструкцию.'
+    bot.send_message(chatid, mes, reply_markup=buttons(False))
 
 
 @bot.callback_query_handler(func=lambda call: call.data == 'Случайная задача')
@@ -100,42 +115,13 @@ def show(callback_query):
     message = callback_query.message
     chatid = message.chat.id
     
+    bot.edit_message_text(chat_id=callback_query.from_user.id,
+                          message_id=message.message_id, text=('-' * 9))
     key = [KeyboardButton(txt) for txt in todo[chatid].keys()]
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).add(*key)
-        
-    #bot.send_message(chatid, 'Выбери интересующее время...', reply_markup=keyboard)
+    bot.send_message(chatid, 'Выбери интересующее время...', reply_markup=keyboard)
     
-    mes = 'Выбери интересующее время...'
-    bot.edit_message_text(chat_id=callback_query.from_user.id, message_id=message.message_id, text='...')
-    
-    #bot.register_next_step_handler(message, dateChoice)
-    chatid = message.chat.id
-    if len(todo[chatid]) == 0:
-        bot.send_message(chatid, 'Список задач пуст!')
-    else:
-        #bot.send_message(chatid, 'Есть задачи на:')
-        #for time in todo[chatid].keys():
-        #    mes = '* ' + time
-        #    bot.send_message(chatid, mes)
-        #bot.send_message(chatid, 'Напиши интересующее время...')
-        #bot.register_next_step_handler(message, dateChoice)
-        
-        #keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-        key = [KeyboardButton(txt) for txt in todo[chatid].keys()]
-        keyboard = ReplyKeyboardMarkup(resize_keyboard=True).add(*key)
-        
-        #key = list()
-        #for time in todo[chatid].keys():
-        #    key.append(KeyboardButton(text=str(time)))
-        #
-        #for k in key:
-        #    keyboard.add(k)
-            
-        bot.send_message(chatid,
-                     'Выбери интересующее время...',
-                     reply_markup=keyboard)
-        
-        bot.register_next_step_handler(message, dateChoice)
+    bot.register_next_step_handler(message, dateChoice)
     
 
 def dateChoice(message):
@@ -154,5 +140,4 @@ def dateChoice(message):
 
 if __name__ == '__main__':
     print('Бот запущен!')
-    # Постоянно обращается к серверам телеграм
     bot.infinity_polling()
