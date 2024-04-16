@@ -101,10 +101,9 @@ def rand(callback_query):
     
     mes = 'Выбери необходимую инструкцию.'
     if message.text != mes:
-        todoEmpty = len(todo[message.chat.id]) == 0
         bot.edit_message_text(chat_id=callback_query.from_user.id,
                               message_id=message.message_id,
-                              text=mes, reply_markup=buttons(todoEmpty))
+                              text=mes, reply_markup=buttons(False))
 
 
 @bot.callback_query_handler(func=lambda call: call.data == inlineKeys[InlineBtn.SHOW_TASKS])
@@ -117,7 +116,6 @@ def show(callback_query):
     key = [KeyboardButton(txt) for txt in todo[chatid].keys()]
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).add(*key)
     answer = bot.send_message(chatid, 'Выбери интересующее время...', reply_markup=keyboard)
-    
     bot.register_next_step_handler(answer, dateChoice)
     
 
