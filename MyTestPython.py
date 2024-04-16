@@ -8,6 +8,7 @@ from telebot.types import (
 )
 import random
 import os
+import enum
 
 TOKEN = os.getenv("TELEG_TOKEN", "00000000")
 RANDOM_TASKS = ["Записаться на курс в Нетологию", "Написать Гвидо письмо", "Покормить кошку", "Помыть машину"]
@@ -15,6 +16,13 @@ RANDOM_TASKS = ["Записаться на курс в Нетологию", "Н�
 bot = TeleBot(TOKEN)
 # todo = { chatid: { дата: [] } }
 todo = {}
+
+InlineBtn = enum.Enum(
+    value='InlineBtn',
+    names=('ADD_TASK', 'RANDOM_TASK', 'SHOW_TASKS'),
+)
+BTN_list = ['Добавить задачу', "Случайная задача", "Покажи задачи"]
+inlineKeys = dict(zip(InlineBtn, BTN_list))
 
 ###
 # commandStr = message.text.split(maxsplit=2)
@@ -31,11 +39,9 @@ def addTask(chatid, time, task):
             usertodo[time] = [task]
 
 
-inlineKeys = ['Добавить задачу', "Случайная задача", "Покажи задачи"]
-
 def buttons(isEmptyTodo):
-    exceptKey = "Покажи задачи" if isEmptyTodo else ""
-    key = [InlineKeyboardButton(txt, callback_data=txt) for txt in inlineKeys if txt != exceptKey]
+    exceptKey = inlineKeys[InlineBtn.SHOW_TASKS] if isEmptyTodo else ""
+    key = [InlineKeyboardButton(txt, callback_data=txt) for txt in inlineKeys.values() if txt != exceptKey]
     keyboard = InlineKeyboardMarkup(row_width=2).add(*key)
     return keyboard
 
@@ -56,7 +62,7 @@ def welcome(message):
     bot.send_message(chatid, mes, reply_markup=buttons(todoEmpty))
 
 
-@bot.callback_query_handler(func=lambda call: call.data == 'Добавить задачу')
+@bot.callback_query_handler(func=lambda call: call.data == inlineKeys[InlineBtn.ADD_TASK])
 def add(callback_query):
     message = callback_query.message
     mes = 'Введи время задачи (сегодня, завтра, 12.03.2024...)'
@@ -84,7 +90,7 @@ def taskInput(message, date):
     bot.send_message(chatid, mes, reply_markup=buttons(False))
 
 
-@bot.callback_query_handler(func=lambda call: call.data == 'Случайная задача')
+@bot.callback_query_handler(func=lambda call: call.data == inlineKeys[InlineBtn.RANDOM_TASK])
 def rand(callback_query):
     message = callback_query.message
     date = 'сегодня'
@@ -102,7 +108,7 @@ def rand(callback_query):
                               text=mes, reply_markup=buttons(todoEmpty))
 
 
-@bot.callback_query_handler(func=lambda call: call.data == 'Покажи задачи')
+@bot.callback_query_handler(func=lambda call: call.data == inlineKeys[InlineBtn.SHOW_TASKS])
 def show(callback_query):
     message = callback_query.message
     chatid = message.chat.id
