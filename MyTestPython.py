@@ -31,12 +31,11 @@ inlineKeys = dict(zip(InlineBtn, BTN_list))
 
 def addTask(chatid, time, task):
     time = time.lower()
-    if chatid in todo:
-        usertodo = todo[chatid]
-        if time in usertodo:
-            usertodo[time].append(task)
-        else:
-            usertodo[time] = [task]
+    usertodo = todo[chatid]
+    if time in usertodo:
+        usertodo[time].append(task)
+    else:
+        usertodo[time] = [task]
 
 
 def buttons(isEmptyTodo):
@@ -117,9 +116,9 @@ def show(callback_query):
                           message_id=message.message_id, text=('-' * 9))
     key = [KeyboardButton(txt) for txt in todo[chatid].keys()]
     keyboard = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True).add(*key)
-    bot.send_message(chatid, 'Выбери интересующее время...', reply_markup=keyboard)
+    answer = bot.send_message(chatid, 'Выбери интересующее время...', reply_markup=keyboard)
     
-    bot.register_next_step_handler(message, dateChoice)
+    bot.register_next_step_handler(answer, dateChoice)
     
 
 def dateChoice(message):
